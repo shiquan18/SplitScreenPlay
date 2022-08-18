@@ -24,12 +24,12 @@ class MainActivity : AppCompatActivity() {
     var start: Button? = null
     var socketManager:SocketManager = SocketManager()
 
-    //联屏配置
+    //4联屏配置
     private var deviceList:ArrayList<ConfigBean> = arrayListOf(
         ConfigBean(true,"" , 2560 , 1600, 0 , 0 ),//主屏配置在第一个
-        ConfigBean(false,"192.168.10.54" , 2560 , 1600, -1280 , 0 ),
-        ConfigBean(false,"192.168.10.47" , 2560 , 1600, 0 , -800 ),
-        ConfigBean(false,"192.168.10.47" , 2560 , 1600, -1280 , -800 )
+        ConfigBean(false,"192.168.10.47" , 2560 , 1600, -1280 , 0 ),
+//        ConfigBean(false,"192.168.10.47" , 2560 , 1600, 0 , -800 ),
+//        ConfigBean(false,"192.168.10.47" , 2560 , 1600, -1280 , -800 )
     )
 
     private var currentDevice:ConfigBean = deviceList[0] // 主屏的配置
@@ -44,11 +44,26 @@ class MainActivity : AppCompatActivity() {
             when (msg.what) {
                 0 -> {
                     Log.e("MainActivity" , "发送成功 ${System.currentTimeMillis()}")
-                    this.postDelayed(Runnable { onStartView() },400)
+                    Log.d("MainActivity", "进度：" + mVideoView?.currentPosition)
+                    onStartView(0)
                 }
                 1 -> {
-                    Log.e("MainActivity" , "接收成功 ${System.currentTimeMillis()}")
-                    onStartView()
+                    val bundle = msg.data
+                    var content = bundle.getString("content") // 这里的orderid是一个全局变量
+                    Log.e("MainActivity" , "接收到的消息 $content")
+                    Log.d("MainActivity", "自己的状态：time ${System.currentTimeMillis()} progress ${mVideoView?.currentPosition}")
+                    if (!content.isNullOrEmpty()){
+                        var arrayList = content.split("/")
+                        var intervalTime = System.currentTimeMillis() - arrayList[0].toLong()
+                        var intervalProgress = arrayList[1].toInt() - mVideoView?.currentPosition!!
+                        //根据进度间隔与时间间隔的差值，计算副屏进度实际延迟的时间，然后根据延迟时间快进
+                        //比如主屏传递过来的时间比当前时间慢了70ms , 但是主屏传递过来的进度依然快了540ms , 那么副屏的视频的进度延迟时间是 540 - 70 = 470ms
+                        //额外加50ms是包括计算时间在内的误差值
+                        var delayTime = intervalProgress - intervalTime
+                        onStartView(delayTime.toInt() + 50) //快进的差值需要根据主屏的播放进度计算
+                    }else{
+                        onStartView(0) //快进的差值需要根据主屏的播放进度计算
+                    }
                 }
             }
         }
@@ -73,7 +88,7 @@ class MainActivity : AppCompatActivity() {
 
         mVideoView = findViewById(R.id.video_view)
         start = findViewById(R.id.start)
-        moveView()
+        initView()
 
         checkPermission()
 
@@ -91,15 +106,16 @@ class MainActivity : AppCompatActivity() {
      * 注意视频原有的尺寸是以宽度为基准的，比例无法更改
      * 如果视频的比例与整体的比例不一致，就会导致高度方向有留白的问题
      */
-    private fun moveView() {
+    private fun initView() {
         val lp = LinearLayout.LayoutParams(currentDevice.with, currentDevice.height)
         lp.setMargins(currentDevice.offsetX, currentDevice.offsetY, 0, 0)
         mVideoView?.layoutParams = lp
-    }
 
-    //这是dp转为px的方法
-    private fun dp2px(i: Int): Int {
-        return (Resources.getSystem().displayMetrics.density * i + 0.5f).toInt()}
+        mVideoView?.setOnCompletionListener {
+            playState = false
+            Log.d("MainActivity", "播放结束：")
+        }
+    }
 
     fun checkPermission() {
         ActivityCompat.requestPermissions(
@@ -126,20 +142,35 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * 主屏触发消息
+     */
     fun start(view:View){
         Log.e("MainActivity" , "按钮被点击了 ${System.currentTimeMillis()}")
         Thread{
-            socketManager.sendMsg("start",mHandler)
+            socketManager.sendMsg( "",mHandler)
+            Thread.sleep(1000) //1秒钟后再发一次消息，用于同步进度
+            socketManager.sendMsg( "${System.currentTimeMillis()}/${ mVideoView?.currentPosition}",mHandler)
+            Thread.sleep(1000) //1秒钟后再发一次消息，用于同步进度
+            socketManager.sendMsg( "${System.currentTimeMillis()}/${ mVideoView?.currentPosition}",mHandler)
         }.start()
     }
 
-    fun onStartView() {
-        Log.e("MainActivity", "播放时间 ${System.currentTimeMillis()}")
-        mVideoView?.setVideoPath(Environment.getExternalStorageDirectory().toString() + "/video.MP4")
-        mVideoView?.setMediaController(mMediaController);
-        mVideoView?.seekTo(0)
-        mVideoView?.requestFocus()
-        mVideoView?.start()
-        Log.d("MainActivity", "进度：" + mVideoView?.currentPosition)
+    var playState:Boolean = false
+    fun onStartView(progress:Int) {
+        if(playState){
+            if(progress!=0){
+                Log.e("MainActivity" , "快进 $progress")
+                mVideoView?.currentPosition?.plus(progress)?.let { mVideoView?.seekTo(it) };  //以毫秒为单位设置视频的播放进度
+            }
+        }else{
+            playState = true
+            mVideoView?.setVideoPath(Environment.getExternalStorageDirectory().toString() + "/video.MP4")
+            mVideoView?.setMediaController(mMediaController);
+            mVideoView?.seekTo(0)
+            mVideoView?.requestFocus()
+            mVideoView?.start()
+        }
     }
+
 }

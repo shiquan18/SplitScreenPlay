@@ -1,9 +1,11 @@
 package com.example.splitscreenactivity
 
+import android.os.Bundle
 import android.os.Handler
 import android.util.Log
 import java.io.IOException
 import java.net.*
+
 
 class SocketManager {
     private var sendSocket: DatagramSocket? = null
@@ -27,7 +29,6 @@ class SocketManager {
                 val datagramPacket = DatagramPacket(bytes, bytes.size, inetAddress, receivePort)
                 sendSocket!!.send(datagramPacket)
                 mHandler.sendEmptyMessage(0)
-                Log.e("SocketManager" , "发送成功 ${deviceList[item]} 发送时间：${System.currentTimeMillis()}")
             }
         } catch (e: SocketException) {
             e.printStackTrace()
@@ -37,7 +38,6 @@ class SocketManager {
             e.printStackTrace()
         }
     }
-
 
     private var receiveSocket: DatagramSocket? = null
     var datagramPacket: DatagramPacket? = null
@@ -51,8 +51,13 @@ class SocketManager {
                 val bytes = ByteArray(1024)
                 datagramPacket = DatagramPacket(bytes, 0, bytes.size)
                 receiveSocket!!.receive(datagramPacket)
-                mHandler.sendEmptyMessage(1)
-                Log.e("SocketManager" ,  String(datagramPacket!!.data))
+
+                var msg = mHandler.obtainMessage()
+                val bundle = Bundle()
+                bundle.putString("content", String(bytes, 0, datagramPacket!!.length))
+                msg.data = bundle
+                msg.what = 1
+                mHandler.sendMessage(msg)
             }
         } catch (e: SocketException) {
             e.printStackTrace()
