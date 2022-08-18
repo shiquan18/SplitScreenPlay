@@ -26,14 +26,14 @@ class MainActivity : AppCompatActivity() {
 
     //4联屏配置
     private var deviceList:ArrayList<ConfigBean> = arrayListOf(
-        ConfigBean(true,"" , 2560 , 1600, 0 , 0 ),//主屏配置在第一个
-        ConfigBean(false,"192.168.10.47" , 2560 , 1600, -1280 , 0 ),
-//        ConfigBean(false,"192.168.10.47" , 2560 , 1600, 0 , -800 ),
-//        ConfigBean(false,"192.168.10.47" , 2560 , 1600, -1280 , -800 )
+        ConfigBean(true,"" , 2560 , 1600, 0 , 0 ,8856),//主屏配置在第一个
+        ConfigBean(false,"192.168.10.47" , 2560 , 1600, -1280 , 0 ,8855),
+        ConfigBean(false,"192.168.10.79" , 2560 , 1600, 0 , -800 ,8854),
+        ConfigBean(false,"192.168.10.81" , 2560 , 1600, -1280 , -800 ,8853)
     )
 
-    private var currentDevice:ConfigBean = deviceList[0] // 主屏的配置
-//    private var currentDevice:ConfigBean = deviceList[1] // 右上屏的配置
+//    private var currentDevice:ConfigBean = deviceList[0] // 主屏的配置
+    private var currentDevice:ConfigBean = deviceList[1] // 右上屏的配置
 //    private var currentDevice:ConfigBean = deviceList[2] // 左下屏的配置
 //    private var currentDevice:ConfigBean = deviceList[3] // 右下屏的配置
 
@@ -58,9 +58,12 @@ class MainActivity : AppCompatActivity() {
                         var intervalProgress = arrayList[1].toInt() - mVideoView?.currentPosition!!
                         //根据进度间隔与时间间隔的差值，计算副屏进度实际延迟的时间，然后根据延迟时间快进
                         //比如主屏传递过来的时间比当前时间慢了70ms , 但是主屏传递过来的进度依然快了540ms , 那么副屏的视频的进度延迟时间是 540 - 70 = 470ms
-                        //额外加50ms是包括计算时间在内的误差值
-                        var delayTime = intervalProgress - intervalTime
-                        onStartView(delayTime.toInt() + 50) //快进的差值需要根据主屏的播放进度计算
+                        //额外加50ms是计算时间在内的误差值
+//                        var delayTime = intervalProgress - intervalTime //用这个时间存在问题，intervalTime获取的时间戳在不同的设备上不一致
+//                        onStartView(delayTime + 50)
+
+                        onStartView(intervalProgress + 100) //快进的差值需要根据主屏的播放进度计算
+
                     }else{
                         onStartView(0) //快进的差值需要根据主屏的播放进度计算
                     }
@@ -95,9 +98,12 @@ class MainActivity : AppCompatActivity() {
         if(currentDevice.isMain){
             start?.visibility = View.VISIBLE
             socketManager.addDevice(deviceList)
+            start?.setOnClickListener {
+                start()
+            }
         }else{
             Thread{
-                socketManager.receiveMsg(mHandler)
+                socketManager.receiveMsg(mHandler ,currentDevice.receivePort)
             }.start()
         }
     }
@@ -145,13 +151,13 @@ class MainActivity : AppCompatActivity() {
     /**
      * 主屏触发消息
      */
-    fun start(view:View){
+    fun start(){
         Log.e("MainActivity" , "按钮被点击了 ${System.currentTimeMillis()}")
         Thread{
             socketManager.sendMsg( "",mHandler)
-            Thread.sleep(1000) //1秒钟后再发一次消息，用于同步进度
+            Thread.sleep(1500) //1.5秒钟后再发一次消息，用于同步进度
             socketManager.sendMsg( "${System.currentTimeMillis()}/${ mVideoView?.currentPosition}",mHandler)
-            Thread.sleep(1000) //1秒钟后再发一次消息，用于同步进度
+            Thread.sleep(1500) //1.5秒钟后再发一次消息，用于同步进度
             socketManager.sendMsg( "${System.currentTimeMillis()}/${ mVideoView?.currentPosition}",mHandler)
         }.start()
     }

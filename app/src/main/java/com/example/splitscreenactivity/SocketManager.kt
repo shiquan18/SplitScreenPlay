@@ -10,7 +10,6 @@ import java.net.*
 class SocketManager {
     private var sendSocket: DatagramSocket? = null
     private val sendPort = 8856
-    private val receivePort = 8855
     private var deviceList:ArrayList<ConfigBean> = arrayListOf()
 
     fun addDevice(deviceAddress:ArrayList<ConfigBean>){
@@ -26,7 +25,7 @@ class SocketManager {
 
             for(item in 1 until deviceList.size){ //过滤掉主屏的第一条
                 val inetAddress: InetAddress = InetAddress.getByName(deviceList[item].address)
-                val datagramPacket = DatagramPacket(bytes, bytes.size, inetAddress, receivePort)
+                val datagramPacket = DatagramPacket(bytes, bytes.size, inetAddress, deviceList[item].receivePort)
                 sendSocket!!.send(datagramPacket)
                 mHandler.sendEmptyMessage(0)
             }
@@ -41,7 +40,7 @@ class SocketManager {
 
     private var receiveSocket: DatagramSocket? = null
     var datagramPacket: DatagramPacket? = null
-    fun receiveMsg(mHandler: Handler) {
+    fun receiveMsg(mHandler: Handler ,receivePort:Int ) {
         Log.e("SocketManager" ,  "等待socket消息")
         try {
             while (true) {
