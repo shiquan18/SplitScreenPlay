@@ -34,8 +34,8 @@ class MainActivity : AppCompatActivity() , SerialInter {
         ConfigBean(false,"192.168.10.81" , 2560 , 1600, -1280 , -800 ,8853)
     )
 
-//    private var currentDevice:ConfigBean = deviceList[0] // 主屏的配置
-    private var currentDevice:ConfigBean = deviceList[1] // 右上屏的配置
+    private var currentDevice:ConfigBean = deviceList[0] // 主屏的配置
+//    private var currentDevice:ConfigBean = deviceList[1] // 右上屏的配置
 //    private var currentDevice:ConfigBean = deviceList[2] // 左下屏的配置
 //    private var currentDevice:ConfigBean = deviceList[3] // 右下屏的配置
 
@@ -80,12 +80,14 @@ class MainActivity : AppCompatActivity() , SerialInter {
         decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or
                 View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
         decorView.setOnSystemUiVisibilityChangeListener {
             decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or
                     View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
                     View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
         }
 
         setContentView(R.layout.activity_main)
