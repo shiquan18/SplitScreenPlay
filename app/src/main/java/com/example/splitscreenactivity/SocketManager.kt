@@ -3,10 +3,14 @@ package com.example.splitscreenactivity
 import android.os.Bundle
 import android.os.Handler
 import android.util.Log
+import com.example.splitscreenactivity.serial.SerialManage
 import java.io.IOException
 import java.net.*
 
 
+/**
+ *  UDP通讯管理类
+ */
 class SocketManager {
     private var sendSocket: DatagramSocket? = null
     private val sendPort = 8856
@@ -17,6 +21,7 @@ class SocketManager {
     }
 
     fun sendMsg(message:String , mHandler: Handler) {
+
         try {
             if (sendSocket == null) {
                 sendSocket = DatagramSocket(sendPort)

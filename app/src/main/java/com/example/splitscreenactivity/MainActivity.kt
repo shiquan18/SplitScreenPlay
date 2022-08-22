@@ -3,7 +3,6 @@ package com.example.splitscreenactivity
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
-import android.content.res.Resources
 import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
@@ -16,13 +15,16 @@ import android.widget.MediaController
 import android.widget.VideoView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import com.example.splitscreenactivity.serial.SerialInter
+import com.example.splitscreenactivity.serial.SerialManage
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity() , SerialInter {
 
     var mMediaController: MediaController? = null
     var mVideoView: VideoView? = null
     var start: Button? = null
     var socketManager:SocketManager = SocketManager()
+    var bundleStart = "start"
 
     //4联屏配置
     private var deviceList:ArrayList<ConfigBean> = arrayListOf(
@@ -49,10 +51,10 @@ class MainActivity : AppCompatActivity() {
                 }
                 1 -> {
                     val bundle = msg.data
-                    var content = bundle.getString("content") // 这里的orderid是一个全局变量
+                    var content = bundle.getString("content")
                     Log.e("MainActivity" , "接收到的消息 $content")
                     Log.d("MainActivity", "自己的状态：time ${System.currentTimeMillis()} progress ${mVideoView?.currentPosition}")
-                    if (!content.isNullOrEmpty()){
+                    if (!content.isNullOrEmpty() && content != bundleStart){
                         var arrayList = content.split("/")
                         var intervalTime = System.currentTimeMillis() - arrayList[0].toLong()
                         var intervalProgress = arrayList[1].toInt() - mVideoView?.currentPosition!!
@@ -91,6 +93,9 @@ class MainActivity : AppCompatActivity() {
 
         mVideoView = findViewById(R.id.video_view)
         start = findViewById(R.id.start)
+        start?.setOnClickListener {
+            start()
+        }
         initView()
 
         checkPermission()
@@ -98,14 +103,18 @@ class MainActivity : AppCompatActivity() {
         if(currentDevice.isMain){
             start?.visibility = View.VISIBLE
             socketManager.addDevice(deviceList)
-            start?.setOnClickListener {
-                start()
-            }
         }else{
             Thread{
                 socketManager.receiveMsg(mHandler ,currentDevice.receivePort)
             }.start()
         }
+
+        initSerialPort()
+    }
+
+    private fun initSerialPort() {
+        SerialManage.getInstance().init(this) //串口初始化
+        SerialManage.getInstance().open() //打开串口
     }
 
     /**
@@ -151,18 +160,28 @@ class MainActivity : AppCompatActivity() {
     /**
      * 主屏触发消息
      */
-    fun start(){
+    private fun start(){
         Log.e("MainActivity" , "按钮被点击了 ${System.currentTimeMillis()}")
         Thread{
-            socketManager.sendMsg( "",mHandler)
+            send( bundleStart,mHandler)
             Thread.sleep(1500) //1.5秒钟后再发一次消息，用于同步进度
-            socketManager.sendMsg( "${System.currentTimeMillis()}/${ mVideoView?.currentPosition}",mHandler)
+            send( "${System.currentTimeMillis()}/${ mVideoView?.currentPosition}",mHandler)
             Thread.sleep(1500) //1.5秒钟后再发一次消息，用于同步进度
-            socketManager.sendMsg( "${System.currentTimeMillis()}/${ mVideoView?.currentPosition}",mHandler)
+            send( "${System.currentTimeMillis()}/${ mVideoView?.currentPosition}",mHandler)
         }.start()
     }
 
-    var playState:Boolean = false
+    var isUDP = false  // UDP通讯与串口通讯切换
+    private fun send(message:String , mHandler: Handler){
+        if(isUDP){
+            socketManager.sendMsg( message,mHandler)
+        }else{
+            SerialManage.getInstance().send(message) //发送指令
+            mHandler.sendEmptyMessage(0)
+        }
+    }
+
+    private var playState:Boolean = false
     fun onStartView(progress:Int) {
         if(playState){
             if(progress!=0){
@@ -177,6 +196,22 @@ class MainActivity : AppCompatActivity() {
             mVideoView?.requestFocus()
             mVideoView?.start()
         }
+    }
+
+    override fun connectMsg(path: String?, isSucc: Boolean) {
+        val msg = if (isSucc) "成功" else "失败"
+        Log.e("串口连接回调", "串口 $path -连接$msg")
+    }
+
+    override fun readData(path: String?, result: String?, size: Int) {
+        Log.e("串口数据回调", "串口 $path -获取数据$result")
+
+        var msg = mHandler.obtainMessage()
+        val bundle = Bundle()
+        bundle.putString("content", result)
+        msg.data = bundle
+        msg.what = 1
+        mHandler.sendMessage(msg)
     }
 
 }
